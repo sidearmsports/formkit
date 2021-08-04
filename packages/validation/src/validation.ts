@@ -1,4 +1,9 @@
-import { FormKitNode, FormKitMessage, createMessage } from '@formkit/core'
+import {
+  FormKitNode,
+  FormKitMessage,
+  createMessage,
+  createWatcher,
+} from '@formkit/core'
 import { has, empty, token } from '@formkit/utils'
 
 /**
@@ -143,10 +148,12 @@ export function createValidation(baseRules: FormKitValidationRules = {}) {
         rules = parseRules(event.payload.value, availableRules)
       }
     })
+    // Create a new watcher object for this node's validation
+    const watcher = createWatcher(node)
     // Validate the field when this plugin is initialized
-    validate(node.value, node, rules, nonce)
+    validate(watcher, rules, nonce)
     // When values of this input are actually committed, run validation:
-    node.on('commit', ({ payload }) => validate(payload, node, rules, nonce))
+    node.on('commit', () => validate(watcher, rules, nonce))
   }
 }
 
@@ -158,22 +165,22 @@ export function createValidation(baseRules: FormKitValidationRules = {}) {
  * @param rules - The rules
  */
 async function validate(
-  value: any,
-  node: FormKitNode<any>,
-  rules: FormKitValidation[],
-  nonce: { value: string }
+  watcher: FormKitWatcher,
+  rules: FormKitValidation[]
 ): Promise<void> {
+  // Update the internal nonce
+  watcher.reset()
+  const node = watcher.node
   // Create a new nonce, canceling any existing async validators
-  nonce.value = token()
   let validations = [...rules]
   removeFlaggedMessages(node)
   validations.forEach((v) => v.debounce && clearTimeout(v.timer))
-  if (empty(value)) {
+  if (empty(node.value)) {
     validations = validations.filter((v) => !v.skipEmpty)
   }
   if (validations.length) {
     node.store.set(validatingMessage)
-    await run(value, validations, node, nonce, false)
+    await run(validations, watcher, false)
     node.store.remove('validating')
   }
 }
@@ -190,10 +197,8 @@ async function validate(
  * @returns
  */
 async function run(
-  value: any,
   validations: FormKitValidation[],
-  node: FormKitNode<any>,
-  nonce: { value: string },
+  watcher: FormKitWatcher,
   removeImmediately: boolean
 ): Promise<void | 0> {
   const currentRun = nonce.value
@@ -203,6 +208,10 @@ async function run(
     removeImmediately = true
     await debounce(validation)
   }
+  watcher.observe(
+    (node) => validation.rule(node, ...validation.args),
+    (result) => {}
+  )
   // We don't know yet if the rule will be async or not, so store the return
   const willBeResult = validation.rule({ value, node }, ...validation.args)
   // Check if we got a promise out of it, if we did it's obviously async
