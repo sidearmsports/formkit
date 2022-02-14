@@ -5,6 +5,7 @@
   "description": "FormKit base themes",
   "main": "index.cjs.js",
   "module": "index.esm.js",
+  "exports": "./dist/index.esm.js",
   "types": "dist/index.d.ts",
   "contributors": [
     "Justin Schroeder <justin@formkit.com>",

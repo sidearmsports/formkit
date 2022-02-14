@@ -5,6 +5,7 @@
   "description": "Commonly shared types for FormKit",
   "main": "dist/index.cjs.js",
   "module": "dist/index.esm.js",
+  "exports": "./dist/index.esm.js",
   "types": "dist/index.d.ts",
   "contributors": [
     "Justin Schroeder <justin@formkit.com>"
